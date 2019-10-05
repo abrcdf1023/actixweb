@@ -1,10 +1,19 @@
 use actix_web::{web, App, HttpServer, Result, HttpResponse, Responder, get};
 use listenfd::ListenFd;
 use serde::{Deserialize, Serialize};
+use std::process::Command;
 
 #[derive(Serialize, Deserialize)]
 struct MyObj {
     name: String,
+}
+
+fn call_python(value:&str) -> String {
+    let mut translate = Command::new("python3");
+    translate.arg("run_nn.py").arg("translate").arg(value);
+    translate.current_dir("/Users/liyanxin/Life/myprojects/Chinese2English_Seq2Seq_Attention");
+    let output = translate.output().expect("failed to execute process");
+    String::from_utf8_lossy(&output.stdout).to_string()
 }
 
 fn index(info: web::Path<(u32, String)>) -> impl Responder {
@@ -13,8 +22,9 @@ fn index(info: web::Path<(u32, String)>) -> impl Responder {
 
 #[get("/hello/{name}")]
 fn hello(obj: web::Path<MyObj>) -> Result<HttpResponse> {
+    let output = call_python(&obj.name);
     Ok(HttpResponse::Ok().json(MyObj {
-        name: obj.name.to_string(),
+        name: output,
     }))
 }
 

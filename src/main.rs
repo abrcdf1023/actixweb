@@ -1,3 +1,8 @@
+#[macro_use]
+extern crate log;
+extern crate env_logger;
+
+use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer, Result, HttpResponse, get};
 use listenfd::ListenFd;
 use serde::{Deserialize, Serialize};
@@ -8,6 +13,9 @@ struct Chinese {
     text: String,
 }
 
+/**
+ * Translate chinese to English with deep learning.
+ */
 fn exec_translate_from_python(value:&str) -> String {
     let mut _translate = Command::new("python3");
     _translate.arg("run_nn.py").arg("translate").arg(value);
@@ -25,7 +33,19 @@ fn translate(info: web::Query<Chinese>) -> Result<HttpResponse> {
 }
 
 fn main() {
+    // init log
+    std::env::set_var("RUST_LOG", "actix_web=info,info");
+    env_logger::init();
+
+    // settings
+    let url = "127.0.0.1:3000";
+
+    info!("Running server on {}", url);
+    
+    // auto reload
     let mut listenfd = ListenFd::from_env();
+
+    // start server
     let mut server = HttpServer::new(
         || App::new()
             .service(
@@ -33,10 +53,11 @@ fn main() {
             )
         );
 
+    // auto reload listener
     server = if let Some(l) = listenfd.take_tcp_listener(0).unwrap() {
         server.listen(l).unwrap()
     } else {
-        server.bind("127.0.0.1:3000").unwrap()
+        server.bind(url).unwrap()
     };
 
     server.run().unwrap();

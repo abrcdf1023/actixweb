@@ -1,0 +1,5 @@
+# actixweb
+
+```sh
+$ cargo run
+```

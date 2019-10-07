@@ -2,8 +2,9 @@
 extern crate log;
 extern crate env_logger;
 
+use actix_web::middleware::errhandlers::{ErrorHandlerResponse, ErrorHandlers};
 use actix_web::middleware::Logger;
-use actix_web::{web, App, HttpServer, Result, HttpResponse, get};
+use actix_web::{dev, http, web, App, HttpServer, Result, HttpResponse, get, middleware};
 use listenfd::ListenFd;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
@@ -11,6 +12,14 @@ use std::process::Command;
 #[derive(Serialize, Deserialize)]
 struct Chinese {
     text: String,
+}
+
+fn render_500<B>(mut res: dev::ServiceResponse<B>) -> Result<ErrorHandlerResponse<B>> {
+    res.response_mut().headers_mut().insert(
+        http::header::CONTENT_TYPE,
+        http::HeaderValue::from_static("Error"),
+    );
+    Ok(ErrorHandlerResponse::Response(res))
 }
 
 /**
@@ -48,8 +57,15 @@ fn main() {
     // start server
     let mut server = HttpServer::new(
         || App::new()
+            .wrap(Logger::default())
+            .wrap(Logger::new("%a %{User-Agent}i"))
+            .wrap(middleware::DefaultHeaders::new().header("X-Version", "0.2"))
+            .wrap(
+                ErrorHandlers::new()
+                    .handler(http::StatusCode::INTERNAL_SERVER_ERROR, render_500),
+            )
             .service(
-                web::scope("/api").service(translate)
+                web::scope("/api/v1").service(translate)
             )
         );
 

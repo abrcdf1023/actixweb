@@ -1,18 +1,16 @@
 #[macro_use]
 extern crate log;
 extern crate env_logger;
+extern crate actixweb;
 
 use actix_web::middleware::errhandlers::{ErrorHandlerResponse, ErrorHandlers};
 use actix_web::middleware::Logger;
-use actix_web::{dev, http, web, App, HttpServer, Result, HttpResponse, get, middleware};
+use actix_web::{dev, http, web, App, HttpServer, Result, HttpResponse, get, post, middleware};
 use listenfd::ListenFd;
-use serde::{Deserialize, Serialize};
 use std::process::Command;
 
-#[derive(Serialize, Deserialize)]
-struct Chinese {
-    text: String,
-}
+use self::actixweb::*;
+use self::models::{Chinese, QueryNewPost};
 
 fn render_500<B>(mut res: dev::ServiceResponse<B>) -> Result<ErrorHandlerResponse<B>> {
     res.response_mut().headers_mut().insert(
@@ -41,6 +39,14 @@ fn translate(info: web::Query<Chinese>) -> Result<HttpResponse> {
     }))
 }
 
+#[post("/post")]
+fn add_new_post(info: web::Query<QueryNewPost>) -> Result<HttpResponse> {
+    let connection = establish_connection();
+    let post = create_post(&connection, &info.title, &info.body);
+
+    Ok(HttpResponse::Ok().json(post))
+}
+
 fn main() {
     // init log
     std::env::set_var("RUST_LOG", "actix_web=info,info");
@@ -65,7 +71,7 @@ fn main() {
                     .handler(http::StatusCode::INTERNAL_SERVER_ERROR, render_500),
             )
             .service(
-                web::scope("/api/v1").service(translate)
+                web::scope("/api/v1").service(translate).service(add_new_post)
             )
         );
 

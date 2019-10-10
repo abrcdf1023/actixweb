@@ -9,20 +9,22 @@ pub struct Post {
     pub published: bool,
 }
 
-#[derive(Insertable)]
+#[derive(Serialize, Deserialize, Insertable)]
 #[table_name="posts"]
-pub struct NewPost<'a> {
-    pub title: &'a str,
-    pub body: &'a str,
+pub struct NewPost {
+    pub title: String,
+    pub body: String,
+}
+
+#[derive(Serialize, Deserialize, Insertable)]
+#[table_name="posts"]
+pub struct UpdatePost {
+    pub title: String,
+    pub body: String,
+    pub published: bool,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Chinese {
     pub text: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct QueryNewPost {
-    pub title: String,
-    pub body: String,
 }

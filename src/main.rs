@@ -5,12 +5,12 @@ extern crate actixweb;
 
 use actix_web::middleware::errhandlers::{ErrorHandlerResponse, ErrorHandlers};
 use actix_web::middleware::Logger;
-use actix_web::{dev, http, web, App, HttpServer, Result, HttpResponse, get, post, middleware};
+use actix_web::{dev, http, web, App, HttpServer, Result, HttpResponse, get, post, patch, middleware};
 use listenfd::ListenFd;
 use std::process::Command;
 
 use self::actixweb::*;
-use self::models::{Chinese, QueryNewPost};
+use self::models::{Chinese, NewPost, UpdatePost};
 
 fn render_500<B>(mut res: dev::ServiceResponse<B>) -> Result<ErrorHandlerResponse<B>> {
     res.response_mut().headers_mut().insert(
@@ -23,28 +23,44 @@ fn render_500<B>(mut res: dev::ServiceResponse<B>) -> Result<ErrorHandlerRespons
 /**
  * Translate chinese to English with deep learning.
  */
-fn exec_translate_from_python(value:&str) -> String {
+fn exec_translate_from_python(value:&str) -> Vec<u8> {
     let mut _translate = Command::new("python3");
     _translate.arg("run_nn.py").arg("translate").arg(value);
     _translate.current_dir("/Users/liyanxin/Life/myprojects/Chinese2English_Seq2Seq_Attention");
     let output = _translate.output().expect("failed to execute process");
-    String::from_utf8_lossy(&output.stdout).to_string()
+    output.stdout
 }
 
 #[get("/translate")]
 fn translate(info: web::Query<Chinese>) -> Result<HttpResponse> {
     let output = exec_translate_from_python(&info.text);
     Ok(HttpResponse::Ok().json(Chinese {
-        text: output,
+        text: String::from_utf8_lossy(&output).to_string(),
     }))
 }
 
-#[post("/post")]
-fn add_new_post(info: web::Query<QueryNewPost>) -> Result<HttpResponse> {
+#[get("/posts")]
+fn get_posts() -> Result<HttpResponse> {
     let connection = establish_connection();
-    let post = create_post(&connection, &info.title, &info.body);
+    let result = read_posts(&connection);
 
-    Ok(HttpResponse::Ok().json(post))
+    Ok(HttpResponse::Ok().json(result))
+}
+
+#[post("/post")]
+fn post_post(params: web::Json<NewPost>) -> Result<HttpResponse> {
+    let connection = establish_connection();
+    let result = create_post(&connection, params.0);
+
+    Ok(HttpResponse::Ok().json(result))
+}
+
+#[patch("/post/{id}")]
+fn patch_post(params: web::Json<UpdatePost>, id: web::Path<String>) -> Result<HttpResponse> {
+    let connection = establish_connection();
+    let result = update_post(&connection, &id, params.0);
+
+    Ok(HttpResponse::Ok().json(result))
 }
 
 fn main() {
@@ -71,7 +87,11 @@ fn main() {
                     .handler(http::StatusCode::INTERNAL_SERVER_ERROR, render_500),
             )
             .service(
-                web::scope("/api/v1").service(translate).service(add_new_post)
+                web::scope("/api/v1")
+                    .service(translate)
+                    .service(post_post)
+                    .service(get_posts)
+                    .service(patch_post)
             )
         );
 

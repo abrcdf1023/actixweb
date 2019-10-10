@@ -5,8 +5,7 @@ extern crate dotenv;
 pub mod schema;
 pub mod models;
 
-use self::models::{Post, NewPost};
-
+use models::{Post, NewPost, UpdatePost};
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
 use dotenv::dotenv;
@@ -21,16 +20,30 @@ pub fn establish_connection() -> PgConnection {
         .expect(&format!("Error connecting to {}", database_url))
 }
 
-pub fn create_post<'a>(conn: &PgConnection, title: &'a str, body: &'a str) -> Post {
+pub fn create_post<'a>(conn: &PgConnection, data: NewPost) -> Post {
     use schema::posts;
 
-    let new_post = NewPost {
-        title: title,
-        body: body,
-    };
-
     diesel::insert_into(posts::table)
-        .values(&new_post)
+        .values(&data)
         .get_result(conn)
         .expect("Error saving new post")
+}
+
+pub fn read_posts(conn: &PgConnection) -> Vec<Post> {
+    use schema::posts::dsl::*;
+
+    posts.load::<Post>(conn)
+        .expect("Error loading posts")
+}
+
+pub fn update_post<'a>(conn: &PgConnection, id: &'a str, data: UpdatePost) -> Post {
+    use schema::posts::dsl::{posts, published, body, title};
+    let id = id.parse::<i32>().expect("Invalid ID");
+
+    diesel::update(posts.find(id))
+        .set(
+            (published.eq(data.published), title.eq(data.title), body.eq(data.body))
+        )
+        .get_result::<Post>(conn)
+        .expect(&format!("Unable to find post {}", id))
 }

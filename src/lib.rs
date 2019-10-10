@@ -30,7 +30,7 @@ pub fn create_post<'a>(conn: &PgConnection, data: NewPost) -> Post {
 }
 
 pub fn read_posts(conn: &PgConnection) -> Vec<Post> {
-    use schema::posts::dsl::*;
+    use schema::posts::dsl::{posts};
 
     posts.load::<Post>(conn)
         .expect("Error loading posts")
@@ -46,4 +46,15 @@ pub fn update_post<'a>(conn: &PgConnection, id: &'a str, data: UpdatePost) -> Po
         )
         .get_result::<Post>(conn)
         .expect(&format!("Unable to find post {}", id))
+}
+
+pub fn delete_post<'a>(conn: &PgConnection, id: &'a str) -> String {
+    use schema::posts::dsl::{posts};
+    let id = id.parse::<i32>().expect("Invalid ID");
+
+    diesel::delete(posts.find(id))
+        .execute(conn)
+        .expect("Error deleting posts");
+
+    format!("Post id {} deleted success.", id)
 }

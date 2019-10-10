@@ -5,7 +5,7 @@ extern crate actixweb;
 
 use actix_web::middleware::errhandlers::{ErrorHandlerResponse, ErrorHandlers};
 use actix_web::middleware::Logger;
-use actix_web::{dev, http, web, App, HttpServer, Result, HttpResponse, get, post, patch, middleware};
+use actix_web::{dev, http, web, App, HttpServer, Result, HttpResponse, get, post, patch, delete, middleware};
 use listenfd::ListenFd;
 use std::process::Command;
 
@@ -39,26 +39,34 @@ fn translate(info: web::Query<Chinese>) -> Result<HttpResponse> {
     }))
 }
 
-#[get("/posts")]
-fn get_posts() -> Result<HttpResponse> {
-    let connection = establish_connection();
-    let result = read_posts(&connection);
-
-    Ok(HttpResponse::Ok().json(result))
-}
-
 #[post("/post")]
-fn post_post(params: web::Json<NewPost>) -> Result<HttpResponse> {
+fn create_post_handler(params: web::Json<NewPost>) -> Result<HttpResponse> {
     let connection = establish_connection();
     let result = create_post(&connection, params.0);
 
     Ok(HttpResponse::Ok().json(result))
 }
 
+#[get("/posts")]
+fn read_posts_handler() -> Result<HttpResponse> {
+    let connection = establish_connection();
+    let result = read_posts(&connection);
+
+    Ok(HttpResponse::Ok().json(result))
+}
+
 #[patch("/post/{id}")]
-fn patch_post(params: web::Json<UpdatePost>, id: web::Path<String>) -> Result<HttpResponse> {
+fn update_post_handler(params: web::Json<UpdatePost>, id: web::Path<String>) -> Result<HttpResponse> {
     let connection = establish_connection();
     let result = update_post(&connection, &id, params.0);
+
+    Ok(HttpResponse::Ok().json(result))
+}
+
+#[delete("/post/{id}")]
+fn delete_post_handler(id: web::Path<String>) -> Result<HttpResponse> {
+    let connection = establish_connection();
+    let result = delete_post(&connection, &id);
 
     Ok(HttpResponse::Ok().json(result))
 }
@@ -89,9 +97,10 @@ fn main() {
             .service(
                 web::scope("/api/v1")
                     .service(translate)
-                    .service(post_post)
-                    .service(get_posts)
-                    .service(patch_post)
+                    .service(create_post_handler)
+                    .service(read_posts_handler)
+                    .service(update_post_handler)
+                    .service(delete_post_handler)
             )
         );
 

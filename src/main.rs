@@ -40,33 +40,29 @@ fn translate(info: web::Query<Chinese>) -> Result<HttpResponse> {
 }
 
 #[post("/post")]
-fn create_post_handler(params: web::Json<NewPost>) -> Result<HttpResponse> {
-    let connection = establish_connection();
-    let result = create_post(&connection, params.0);
+fn create_post_handler(pool: web::Data<PgPool>, params: web::Json<NewPost>) -> Result<HttpResponse> {
+    let result = create_post(&pool.get().unwrap(), params.0);
 
     Ok(HttpResponse::Ok().json(result))
 }
 
 #[get("/posts")]
-fn read_posts_handler() -> Result<HttpResponse> {
-    let connection = establish_connection();
-    let result = read_posts(&connection);
+fn read_posts_handler(pool: web::Data<PgPool>) -> Result<HttpResponse> {
+    let result = read_posts(&pool.get().unwrap());
 
     Ok(HttpResponse::Ok().json(result))
 }
 
 #[patch("/post/{id}")]
-fn update_post_handler(params: web::Json<UpdatePost>, id: web::Path<String>) -> Result<HttpResponse> {
-    let connection = establish_connection();
-    let result = update_post(&connection, &id, params.0);
+fn update_post_handler(pool: web::Data<PgPool>, params: web::Json<UpdatePost>, id: web::Path<String>) -> Result<HttpResponse> {
+    let result = update_post(&pool.get().unwrap(), &id, params.0);
 
     Ok(HttpResponse::Ok().json(result))
 }
 
 #[delete("/post/{id}")]
-fn delete_post_handler(id: web::Path<String>) -> Result<HttpResponse> {
-    let connection = establish_connection();
-    let result = delete_post(&connection, &id);
+fn delete_post_handler(pool: web::Data<PgPool>, id: web::Path<String>) -> Result<HttpResponse> {
+    let result = delete_post(&pool.get().unwrap(), &id);
 
     Ok(HttpResponse::Ok().json(result))
 }
@@ -87,6 +83,7 @@ fn main() {
     // start server
     let mut server = HttpServer::new(
         || App::new()
+            .data(establish_connection())
             .wrap(Logger::default())
             .wrap(Logger::new("%a %{User-Agent}i"))
             .wrap(middleware::DefaultHeaders::new().header("X-Version", "0.2"))
